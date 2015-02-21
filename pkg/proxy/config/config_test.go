@@ -293,3 +293,41 @@ func TestNewMultipleSourcesEndpointsMultipleHandlersAddRemoveSetAndNotified(t *t
 	handler.ValidateEndpoints(t, endpoints)
 	handler2.ValidateEndpoints(t, endpoints)
 }
+
+func TestNamespacedServicesDoNotClash(t *testing.T) {
+	config := NewServiceConfig()
+	channel := config.Channel("one")
+	handler := NewServiceHandlerMock()
+	config.RegisterHandler(handler)
+
+	serviceUpdate1 := CreateServiceUpdate(ADD, api.Service{ObjectMeta: api.ObjectMeta{Name: "foo", Namespace: "ns1"}, Spec: api.ServiceSpec{Port: 10}})
+	handler.Wait(1)
+	channel <- serviceUpdate1
+	services := []api.Service{serviceUpdate1.Services[0]}
+	handler.ValidateServices(t, services)
+
+	serviceUpdate2 := CreateServiceUpdate(ADD, api.Service{ObjectMeta: api.ObjectMeta{Name: "foo", Namespace: "ns2"}, Spec: api.ServiceSpec{Port: 10}})
+	handler.Wait(1)
+	channel <- serviceUpdate2
+	services = []api.Service{serviceUpdate1.Services[0], serviceUpdate2.Services[0]}
+	handler.ValidateServices(t, services)
+}
+
+func TestNamespacedEndpointsDoNotClash(t *testing.T) {
+	config := NewEndpointsConfig()
+	channel := config.Channel("one")
+	handler := NewEndpointsHandlerMock()
+	config.RegisterHandler(handler)
+
+	endpointUpdate1 := CreateEndpointsUpdate(ADD, api.Endpoints{ObjectMeta: api.ObjectMeta{Name: "foo", Namespace: "ns1"}})
+	handler.Wait(1)
+	channel <- endpointUpdate1
+	endpoints := []api.Endpoints{endpointUpdate1.Endpoints[0]}
+	handler.ValidateEndpoints(t, endpoints)
+
+	endpointUpdate2 := CreateEndpointsUpdate(ADD, api.Endpoints{ObjectMeta: api.ObjectMeta{Name: "foo", Namespace: "ns2"}})
+	handler.Wait(1)
+	channel <- endpointUpdate2
+	endpoints = []api.Endpoints{endpointUpdate1.Endpoints[0], endpointUpdate2.Endpoints[0]}
+	handler.ValidateEndpoints(t, endpoints)
+}
